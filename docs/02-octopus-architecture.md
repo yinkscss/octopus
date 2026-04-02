@@ -50,7 +50,7 @@ Octopus is a Tauri v2 desktop application with a React frontend and a Rust backe
 | Language (Backend) | Rust | 1.77+ | macOS system APIs, process control, performance, memory safety |
 | Local Database | SQLite via sqlx | 0.7+ | Fast, offline-first, no server, perfect for local behaviour data |
 | State Management | Zustand | 4.x | Lightweight, minimal boilerplate, works well with Tauri events |
-| AI Layer | Claude API | claude-sonnet-4 | Sonnet 4 for goal decomposition and pattern analysis; fast enough for interactive use |
+| AI Layer | Multi-provider (Claude/OpenAI) | Provider-agnostic | Claude Sonnet 4 (default) or OpenAI GPT-4o for goal decomposition; abstraction layer supports multiple providers with fallback chain |
 | Notifications | tauri-plugin-notification | 2.x | Native macOS notifications with action buttons |
 | iCloud Sync | Native Rust + NSFileManager | — | Direct iCloud Drive access for Shortcuts export and schedule sync |
 | Background Tasks | macOS LaunchAgent | — | Runs Rust enforcement daemon independently of UI process |
@@ -77,7 +77,11 @@ octopus/
 │   ├── components/                   # Shared UI components
 │   ├── store/                        # Zustand state stores
 │   ├── lib/
-│   │   ├── claude.ts                 # API client wrapper
+│   │   ├── llm/
+│   │   │   ├── provider.ts           # LLM provider interface
+│   │   │   ├── claude.ts             # Claude API implementation
+│   │   │   ├── openai.ts             # OpenAI API implementation
+│   │   │   └── router.ts             # Multi-provider router with fallback
 │   │   └── tauri.ts                  # Tauri command bindings
 │   └── hooks/                        # Custom React hooks
 ├── src-tauri/                        # Rust backend
@@ -134,19 +138,19 @@ octopus/
 
 ### 5.1 App Blocker
 
-The app blocker uses macOS process management APIs via Rust. On a scheduled trigger or a manual lock activation, it polls running processes against the current block list and terminates any violations. Before termination, a 60-second grace notification is sent.
+The app blocker uses macOS process management APIs via Rust. On a scheduled trigger or a manual lock activation, it monitors running processes against the current block list via NSWorkspace notification observers and terminates any violations. Before termination, a 60-second grace notification is sent.
 
 | Tauri Command | Action |
 |---|---|
-| `start_block_session(rules)` | Activates block list, begins polling loop (every 30s) |
+| `start_block_session(rules)` | Activates block list, begins event-driven monitoring via NSWorkspace observers |
 | `check_running_apps()` | Returns list of running apps against current block list |
 | `kill_app(bundle_id)` | Force-terminates process by bundle identifier |
 | `set_intent_gate(app, response)` | Logs why user is opening a blocked app before allowing |
-| `end_block_session()` | Clears block rules, stops polling |
+| `end_block_session()` | Clears block rules, stops monitoring |
 
 ### 5.2 Focus Mode Manager
 
-macOS Focus modes are controlled via AppleScript executed from Rust using `std::process::Command`. The enforcement daemon monitors schedule and calls the appropriate Focus mode automatically.
+macOS Focus modes are controlled via Shortcuts CLI executed from Rust using `std::process::Command`. The app invokes user-created Shortcuts (e.g., `shortcuts run "Octopus - Deep Work"`) for each Focus mode. The enforcement daemon monitors schedule and calls the appropriate Focus mode automatically. Users create these Shortcuts once during onboarding.
 
 ### 5.3 Alarm Engine
 
@@ -154,7 +158,7 @@ Alarms are scheduled as local notifications via `tauri-plugin-notification` with
 
 ### 5.4 Usage Tracker
 
-NSWorkspace notifications (via Rust objc2 bindings) emit events when apps become active or inactive. The usage tracker logs active app, start timestamp, and end timestamp per session. This feeds directly into the pattern detection agent.
+NSWorkspace notifications (via Rust objc2 bindings) emit real-time events when apps become active or inactive using `NSWorkspaceDidActivateApplicationNotification` and `NSWorkspaceDidDeactivateApplicationNotification` observers. The usage tracker logs active app, start timestamp, and end timestamp per session with sub-second latency. This feeds directly into the pattern detection agent.
 
 ---
 
@@ -163,12 +167,12 @@ NSWorkspace notifications (via Rust objc2 bindings) emit events when apps become
 Full agent design is documented in the Agent Design Document. Summary flow:
 
 1. User submits weekly goals via the WeeklyIntent screen
-2. `goalDecomposer.ts` sends prompt to Claude API with goals, identity statement, and last week's patterns
-3. Claude returns structured JSON: `tasks[]`, `time_blocks[]`, `alarms[]`
+2. `goalDecomposer.ts` sends prompt to configured LLM provider (Claude or OpenAI) with goals, identity statement, and last week's patterns
+3. LLM returns structured JSON: `tasks[]`, `time_blocks[]`, `alarms[]`
 4. `scheduleBuilder.ts` validates and stores the plan in SQLite
 5. `phoneConfigurator` invokes Rust commands to set alarms and activate block schedule
 6. `monitoringAgent` runs on a background timer, polling completion data and drift events
-7. Every Sunday, `patternDetector.ts` sends usage history to Claude and returns insights JSON
+7. Every Sunday, `patternDetector.ts` sends usage history to configured LLM and returns insights JSON
 8. Next week's configuration is pre-adjusted based on patterns before user opens the intake screen
 
 ---
@@ -193,7 +197,49 @@ The Rust `icloud_sync` module writes a standardised JSON file to the user's iClo
 ## 8. Security & Privacy
 
 - Zero telemetry. No analytics, no crash reporting by default. All data stays on device.
-- Claude API calls contain no personally identifiable information beyond the goal text the user explicitly provides.
+- LLM API calls (Claude or OpenAI) contain no personally identifiable information beyond the goal text the user explicitly provides. API key is stored in macOS Keychain.
 - SQLite database stored at `~/Library/Application Support/octopus/` with standard macOS user permissions.
 - iCloud sync files are stored in the user's own iCloud Drive — Octopus never has access to an external server.
-- The app requires Accessibility permission to control other apps. This is clearly explained during onboarding with the exact capability it enables.
+- The app requires four macOS permissions clearly explained during onboarding:
+  - **Accessibility Access** — Required for process monitoring and AppleScript execution
+  - **Screen Recording** — Required for NSWorkspace app monitoring on macOS Ventura+
+  - **Notifications** — Required for alarm and intervention delivery
+  - **Full Disk Access** — Required for LaunchAgent plist writing
+
+---
+
+## 9. Offline Mode Behavior
+
+Octopus is designed as a **local-first application** with intelligent degradation when internet is unavailable.
+
+### 9.1 What Works Offline
+
+| Feature | Offline Capability | Notes |
+|---------|-------------------|-------|
+| App blocking enforcement | ✅ Fully functional | All block rules stored locally in SQLite |
+| Alarm delivery | ✅ Fully functional | Alarms scheduled via macOS native notifications |
+| Focus mode automation | ✅ Fully functional | AppleScript commands run locally |
+| Usage tracking | ✅ Fully functional | NSWorkspace events captured locally |
+| Task completion logging | ✅ Fully functional | All writes go to local SQLite |
+| Menu bar dashboard | ✅ Fully functional | Displays current state from local database |
+
+### 9.2 What Requires Internet
+
+| Feature | Offline Behavior | Fallback Strategy |
+|---------|-----------------|-------------------|
+| Weekly goal decomposition (Claude API) | ❌ Unavailable | Use last week's plan with dates shifted forward + manual edit option |
+| Pattern detection (Claude API) | ❌ Unavailable | Skip Sunday review, queue for next online session |
+| iPhone sync via iCloud | ⚠️ Delayed | Sync triggers on next online session, queued in background |
+
+### 9.3 Offline Detection & User Communication
+
+- App checks for internet connectivity before calling Claude API
+- If offline during Sunday goal intake, user sees: "You're offline. Using last week's plan as a starting point. You can edit tasks manually."
+- If offline during Sunday review, user sees: "Pattern analysis requires internet. Your insights will be ready when you're back online."
+- Sync status in Settings shows "Waiting for connection" with last successful sync timestamp
+
+### 9.4 Data Integrity
+
+- All local operations (blocking, tracking, logging) continue uninterrupted offline
+- No data loss — all events are timestamped and stored locally
+- When connection returns, iCloud sync resumes automatically (no user action required)

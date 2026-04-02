@@ -35,21 +35,33 @@ Full design and implementation documentation is available in the [`docs/`](docs/
 - **Frontend:** React + TypeScript
 - **Backend:** Rust
 - **Database:** SQLite (local-first)
-- **AI:** Claude API (Sonnet 4)
+- **AI:** Claude API (Sonnet 4) or OpenAI (GPT-4o) — user configurable
 - **Sync:** iCloud Drive + Apple Shortcuts
 
-## Development Skills
+## Development Workflow
 
-This repository uses GitHub Copilot with specialized skills for development:
+This repository uses GitHub Copilot with specialized skills:
+
+### Workflow Skills (gstack)
+
+| Skill | When to Use |
+|-------|-------------|
+| `/autoplan` | Auto-review plans (CEO/design/eng review without 15-30 questions) |
+| `/careful` | Safety mode for destructive commands (rm -rf, DROP TABLE, force-push) |
+| `/learn` | Manage project learnings across sessions |
+| `/checkpoint` | Save/resume working state when switching context |
+| `/health` | Code quality dashboard (type check, lint, test, quality score) |
+
+### Language/Framework Skills
 
 | Skill | Description |
 |-------|-------------|
-| [prompt-engineering](skills/prompt-engineering/SKILL.md) | Crafting and optimizing prompts for the AI agents |
+| [prompt-engineering](skills/prompt-engineering/SKILL.md) | Crafting and optimizing prompts for AI agents |
 | [rust-blockchain](skills/rust-blockchain/SKILL.md) | Rust development patterns and safety practices |
 | [langchain-typescript](skills/langchain-typescript/SKILL.md) | LangChain/LangGraph for agent orchestration |
 | [langchain-python](skills/langchain-python/SKILL.md) | Python-based AI tooling |
 
-Skills are sourced from [yinkscss/skills](https://github.com/yinkscss/skills).
+Invoke workflow skills in GitHub Copilot chat with `/skillname`. Full documentation in [`.github/copilot-instructions.md`](.github/copilot-instructions.md).
 
 ## Status
 

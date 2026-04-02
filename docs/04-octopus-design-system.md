@@ -284,7 +284,7 @@ Step 1 — IDENTITY
 Large text input. One sentence. This anchors everything.
 
 Step 2 — PERMISSIONS
-Grant: Accessibility, Notifications, Full Disk Access
+Grant: Accessibility, Screen Recording, Notifications, Full Disk Access
 Each permission explained in one line: what it does, why it's needed.
 
 Step 3 — FIRST GOAL

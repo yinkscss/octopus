@@ -156,8 +156,8 @@ Missing a day does not reset progress. The app logs the gap, notes it, looks for
 | Privacy | All data local-first | Health and behaviour data is sensitive; no cloud storage of personal patterns |
 | Latency | Agent response < 3 seconds | ADHD attention span cannot wait for slow responses |
 | Reliability | App blocker 99.9% uptime | One failure trains the brain that it can be bypassed |
-| Offline capability | Core functions work offline | No dependency on internet for enforcement |
-| macOS version | Ventura 13+ required | Accessibility and Focus APIs require modern macOS |
+| Offline capability | Enforcement works fully offline; AI features degrade gracefully | No dependency on internet for blocking, alarms, or tracking |
+| macOS version | Ventura 13+ required | Accessibility, Screen Recording, and Focus APIs require modern macOS |
 | Performance | < 1% CPU in background | Menu bar app cannot drain battery or slow the machine |
 
 ---
@@ -177,7 +177,8 @@ Missing a day does not reset progress. The app logs the gap, notes it, looks for
 | Overbearing enforcement causes anxiety | Medium | Forgiveness principle. Drift logged, not punished. Tone is firm but never shaming. |
 | Alarm fatigue — too many notifications | Medium | Maximum 6 alarms per day. Quality over quantity. Labels must be meaningful. |
 | App blocking prevents legitimate urgent use | Low | Emergency override available with 3-step confirmation and logged reason. |
-| Claude API latency during goal decomposition | Low | Local caching of last decomposition. Fallback to previous week's template. |
+| LLM API latency during goal decomposition | Low | Multi-provider support (Claude/OpenAI) with automatic fallback. Local caching of last decomposition. |
+| LLM API unavailability or rate limits | Low | Automatic provider failover. Fallback to previous week's plan template if all providers fail. |
 
 ---
 

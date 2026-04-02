@@ -280,42 +280,238 @@ function validateTaskPlan(plan: TaskPlan): TaskPlan {
 
 ---
 
-## 7. Claude API Configuration
+## 7. LLM Provider Configuration
+
+### 7.1 Multi-Provider Architecture
+
+Octopus supports multiple LLM providers with a provider-agnostic abstraction layer. This ensures flexibility, reduces vendor lock-in, and allows for cost optimization across different agent types.
+
+#### Supported Providers
+
+| Provider | Default Model | Use Case | Pricing Tier |
+|----------|---------------|----------|--------------|
+| **Claude (Anthropic)** | claude-sonnet-4-20250514 | Goal decomposition, pattern detection (default) | Standard |
+| **OpenAI** | gpt-4o | Goal decomposition, pattern detection (alternative) | Standard |
+| **OpenAI (Fast)** | gpt-4o-mini | Monitoring agent, simple validation tasks | Economy |
+
+#### Provider Selection Strategy
+
+```typescript
+// Default provider routing by agent type
+const AGENT_PROVIDER_MAP = {
+  goalDecomposer: 'claude',      // Best at structured output
+  patternDetector: 'claude',     // Best at complex reasoning
+  monitoringAgent: 'openai-mini' // Fast, cheap, sufficient for simple checks
+};
+
+// User can override in Settings
+interface LLMSettings {
+  primaryProvider: 'claude' | 'openai';
+  fallbackProvider: 'claude' | 'openai' | null;
+  economyMode: boolean; // Use cheaper models where possible
+}
+```
+
+### 7.2 Provider Configurations
+
+#### Claude (Anthropic)
 
 | Parameter | Value | Reason |
 |---|---|---|
 | Model | claude-sonnet-4-20250514 | Fast enough for interactive use; powerful enough for complex decomposition |
-| Max tokens | 2000 | Task plans are structured JSON; 2000 tokens is sufficient for a full week |
+| Max tokens | 3000 (Goal Decomposer)<br>4000 (Pattern Detector) | Sufficient for full week plans and 4-week pattern analysis |
 | Temperature | 0.3 | Low temperature for consistent, structured JSON output |
 | System prompt | Per-agent (see above) | Each agent has a distinct persona and output contract |
 | Response format | JSON only | All outputs are parsed programmatically; no freeform text |
 
-### 7.1 API Wrapper Pattern
+#### OpenAI
+
+| Parameter | Value | Reason |
+|---|---|---|
+| Model | gpt-4o (standard)<br>gpt-4o-mini (economy) | gpt-4o for complex tasks; gpt-4o-mini for monitoring |
+| Max tokens | 3000 (Goal Decomposer)<br>4000 (Pattern Detector)<br>1000 (Monitoring) | Matched to task complexity |
+| Temperature | 0.3 | Low temperature for consistent, structured JSON output |
+| Response format | JSON mode | Use `response_format: { type: "json_object" }` for structured output |
+
+### 7.3 API Wrapper Pattern
 
 ```typescript
-// src/lib/claude.ts
-export async function callAgent<T>(
-  systemPrompt: string,
-  userMessage: string,
-  schema: ZodSchema<T>
-): Promise<T> {
-  const response = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
-      max_tokens: 2000,
-      system: systemPrompt,
-      messages: [{ role: "user", content: userMessage }],
-    })
-  });
+// src/lib/llm/provider.ts
+export interface LLMProvider {
+  name: string;
+  callAgent<T>(
+    systemPrompt: string,
+    userMessage: string,
+    config: AgentConfig,
+    schema: ZodSchema<T>
+  ): Promise<T>;
+}
 
-  const data = await response.json();
-  const text = data.content[0].text;
-  const parsed = JSON.parse(text);
+export interface AgentConfig {
+  maxTokens: number;
+  temperature: number;
+  model?: string; // Optional override
+}
 
-  // Validate against Zod schema — reject malformed outputs
-  return schema.parse(parsed);
+// src/lib/llm/claude.ts
+export class ClaudeProvider implements LLMProvider {
+  name = 'claude';
+
+  async callAgent<T>(
+    systemPrompt: string,
+    userMessage: string,
+    config: AgentConfig,
+    schema: ZodSchema<T>
+  ): Promise<T> {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "x-api-key": this.getApiKey(),
+        "anthropic-version": "2023-06-01"
+      },
+      body: JSON.stringify({
+        model: config.model || "claude-sonnet-4-20250514",
+        max_tokens: config.maxTokens,
+        temperature: config.temperature,
+        system: systemPrompt,
+        messages: [{ role: "user", content: userMessage }],
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content[0].text;
+    const parsed = JSON.parse(text);
+
+    // Validate against Zod schema — reject malformed outputs
+    return schema.parse(parsed);
+  }
+
+  private getApiKey(): string {
+    // Retrieve from macOS Keychain via Tauri command
+    return invoke('get_api_key', { provider: 'claude' });
+  }
+}
+
+// src/lib/llm/openai.ts
+export class OpenAIProvider implements LLMProvider {
+  name = 'openai';
+
+  async callAgent<T>(
+    systemPrompt: string,
+    userMessage: string,
+    config: AgentConfig,
+    schema: ZodSchema<T>
+  ): Promise<T> {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: { 
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${this.getApiKey()}`
+      },
+      body: JSON.stringify({
+        model: config.model || "gpt-4o",
+        max_tokens: config.maxTokens,
+        temperature: config.temperature,
+        response_format: { type: "json_object" },
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userMessage }
+        ],
+      })
+    });
+
+    const data = await response.json();
+    const text = data.choices[0].message.content;
+    const parsed = JSON.parse(text);
+
+    // Validate against Zod schema — reject malformed outputs
+    return schema.parse(parsed);
+  }
+
+  private getApiKey(): string {
+    // Retrieve from macOS Keychain via Tauri command
+    return invoke('get_api_key', { provider: 'openai' });
+  }
+}
+
+// src/lib/llm/router.ts
+export class LLMRouter {
+  private providers: Map<string, LLMProvider>;
+  private settings: LLMSettings;
+
+  constructor() {
+    this.providers = new Map([
+      ['claude', new ClaudeProvider()],
+      ['openai', new OpenAIProvider()],
+    ]);
+  }
+
+  async callAgent<T>(
+    agentType: AgentType,
+    systemPrompt: string,
+    userMessage: string,
+    config: AgentConfig,
+    schema: ZodSchema<T>
+  ): Promise<T> {
+    // Determine provider chain (primary → fallback)
+    const providerChain = this.getProviderChain(agentType);
+
+    for (const providerName of providerChain) {
+      const provider = this.providers.get(providerName);
+      if (!provider) continue;
+
+      try {
+        console.log(`[LLM Router] Trying ${providerName} for ${agentType}`);
+        const result = await provider.callAgent(
+          systemPrompt, 
+          userMessage, 
+          config, 
+          schema
+        );
+        console.log(`[LLM Router] ${providerName} succeeded`);
+        return result;
+      } catch (error) {
+        console.warn(`[LLM Router] ${providerName} failed:`, error);
+        // Continue to next provider in chain
+      }
+    }
+
+    throw new Error(`All LLM providers failed for ${agentType}`);
+  }
+
+  private getProviderChain(agentType: AgentType): string[] {
+    // Economy mode: prefer cheaper models for simple tasks
+    if (this.settings.economyMode && agentType === 'monitoringAgent') {
+      return ['openai-mini'];
+    }
+
+    // Primary + fallback strategy
+    const chain = [this.settings.primaryProvider];
+    if (this.settings.fallbackProvider) {
+      chain.push(this.settings.fallbackProvider);
+    }
+    return chain;
+  }
+}
+
+// Usage in agents
+import { router } from '@/lib/llm/router';
+
+export async function decomposeGoals(
+  goalText: string,
+  identityStatement: string
+): Promise<TaskPlan> {
+  const systemPrompt = GOAL_DECOMPOSER_SYSTEM_PROMPT;
+  const userMessage = `Goals: ${goalText}\nIdentity: ${identityStatement}`;
+  
+  return router.callAgent(
+    'goalDecomposer',
+    systemPrompt,
+    userMessage,
+    { maxTokens: 3000, temperature: 0.3 },
+    TaskPlanSchema
+  );
 }
 ```
 
@@ -325,8 +521,24 @@ export async function callAgent<T>(
 
 | Failure | Detection | Fallback |
 |---|---|---|
-| Claude API timeout | > 5s with no response | Use last week's plan with dates shifted forward |
-| Malformed JSON output | Zod schema parse error | Retry once with stricter prompt; if fails again, use fallback |
+| Primary LLM provider timeout | > 5s with no response | Automatically try fallback provider (OpenAI → Claude or vice versa) |
+| All LLM providers fail | Both primary and fallback timeout/error | Use last week's plan with dates shifted forward |
+| Malformed JSON output | Zod schema parse error | Retry once with stricter prompt; if fails again, try alternate provider; if still fails, use fallback plan |
 | Empty tasks array | Schema validation | Surface error: "Agent couldn't decompose this goal. Try being more specific." |
 | Pattern data insufficient | < 2 weeks of data | Skip auto-adjustment, show message: "More data needed for insights" |
 | Monitoring agent crash | No heartbeat for > 10 min | LaunchAgent auto-restarts the daemon |
+| API key missing/invalid | 401/403 response | Prompt user to configure API key in Settings; block agent calls until configured |
+
+### 8.1 Graceful Degradation Strategy
+
+```typescript
+// Priority fallback chain for goal decomposition
+const FALLBACK_CHAIN = [
+  { type: 'primary_provider', description: 'Configured primary LLM' },
+  { type: 'fallback_provider', description: 'Configured fallback LLM' },
+  { type: 'last_week_plan', description: 'Previous week with dates shifted' },
+  { type: 'empty_template', description: 'Blank week template for manual input' }
+];
+
+// User always has path forward, even with no LLM access
+```

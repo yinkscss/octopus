@@ -22,3 +22,7 @@ target
 
 .env
 .github/*
+
+.vscode/*
+.github/skills/*
+.github/workflows/* 
