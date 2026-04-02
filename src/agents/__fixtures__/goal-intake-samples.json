@@ -1,0 +1,22 @@
+[
+  {
+    "rawGoals": "Finish the LangGraph refactor and sleep before midnight every night.",
+    "identityStatement": "I am someone who ships and protects my energy."
+  },
+  {
+    "rawGoals": "Ship the onboarding flow, clear inbox to zero, and exercise 4 times.",
+    "identityStatement": "I am becoming consistent under pressure."
+  },
+  {
+    "rawGoals": "Write architecture docs, prep beta outreach, and stop doomscrolling after 9pm.",
+    "identityStatement": "I am a focused builder."
+  },
+  {
+    "rawGoals": "Complete database migration hardening and run 48-hour daemon test.",
+    "identityStatement": "I finish what I start."
+  },
+  {
+    "rawGoals": "Improve dashboard UX and close all P1 bugs before Friday.",
+    "identityStatement": "I deliver clean, reliable experiences."
+  }
+]

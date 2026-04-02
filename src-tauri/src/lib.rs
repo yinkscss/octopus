@@ -2,6 +2,7 @@ use sqlx::SqlitePool;
 use tauri::tray::TrayIconEvent;
 use tauri::{Manager, State};
 
+mod commands;
 mod db;
 mod keychain;
 
@@ -50,6 +51,11 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             keychain::get_api_key,
             keychain::set_api_key,
+            commands::planning::create_weekly_goal,
+            commands::planning::store_task_plan,
+            commands::planning::get_week_plan,
+            commands::planning::shift_last_plan_forward,
+            commands::planning::mark_task_completed,
             store_llm_response,
             get_last_llm_response,
             debug_log

@@ -1,0 +1,8 @@
+ALTER TABLE tasks ADD COLUMN implementation_intention TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN two_minute_start TEXT NOT NULL DEFAULT '';
+ALTER TABLE tasks ADD COLUMN task_type TEXT NOT NULL DEFAULT 'admin';
+ALTER TABLE tasks ADD COLUMN app_rules TEXT;
+
+ALTER TABLE alarms ADD COLUMN day TEXT;
+ALTER TABLE alarms ADD COLUMN time TEXT;
+ALTER TABLE alarms ADD COLUMN alarm_type TEXT NOT NULL DEFAULT 'transition';
