@@ -11,6 +11,19 @@ declare global {
   }
 }
 
+function normalizeInvokeError(cmd: string, error: unknown): Error {
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/Command\s+.+\s+not\s+found/i.test(message)) {
+    return new Error(
+      `Backend command '${cmd}' is unavailable in the current Tauri session. ` +
+        "Restart dev runtime with a clean session (stop stale Vite/Tauri processes, then run npm run tauri dev)."
+    );
+  }
+
+  return error instanceof Error ? error : new Error(message);
+}
+
 export async function invoke<T>(
   cmd: string,
   args?: Record<string, unknown>
@@ -33,6 +46,6 @@ export async function invoke<T>(
     return await window.__TAURI_INTERNALS__.invoke<T>(cmd, args);
   } catch (error) {
     console.error(`Tauri invoke error for command "${cmd}":`, error);
-    throw error;
+    throw normalizeInvokeError(cmd, error);
   }
 }
