@@ -28,6 +28,11 @@ async fn get_last_llm_response(pool: State<'_, SqlitePool>) -> Result<Option<Str
     Ok(response)
 }
 
+#[tauri::command]
+fn debug_log(message: String) {
+    println!("[DEBUG FROM FRONTEND] {}", message);
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -46,7 +51,8 @@ pub fn run() {
             keychain::get_api_key,
             keychain::set_api_key,
             store_llm_response,
-            get_last_llm_response
+            get_last_llm_response,
+            debug_log
         ])
         .on_tray_icon_event(|app, event| {
             if let TrayIconEvent::Click { button, .. } = event {

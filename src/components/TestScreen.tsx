@@ -23,9 +23,9 @@ export default function TestScreen() {
         }
       })
       .catch((err) => {
-        console.warn("Failed to load last response", err);
+        console.error("[TestScreen] Failed to load last response:", err);
       });
-  }, [setLastResponse]);
+  }, []);
 
   return (
     <div className="screen">
