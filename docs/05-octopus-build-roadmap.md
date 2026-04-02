@@ -82,16 +82,16 @@ npm install zustand @tanstack/react-query zod
 
 ### Definition of Done
 
-- [ ] App launches as a menu bar icon with no dock icon
-- [ ] Clicking icon opens a popup window at 380px × 520px
-- [ ] User can configure Claude and/or OpenAI API keys in Settings
-- [ ] API keys are stored securely in macOS Keychain (not plaintext)
-- [ ] Text entered in test screen can be sent to either Claude or OpenAI (user selects)
-- [ ] Both providers return valid responses that are displayed
-- [ ] Response is written to SQLite and can be read back on next launch
-- [ ] Router implements fallback: if primary provider fails, tries secondary automatically
-- [ ] All Zustand stores initialise without errors
-- [ ] Hot reload works in development
+- [x] App launches as a menu bar icon with no dock icon
+- [x] Clicking icon opens a popup window at 380px × 520px
+- [x] User can configure Claude and/or OpenAI API keys in Settings
+- [x] API keys are stored securely in macOS Keychain (not plaintext)
+- [x] Text entered in test screen can be sent to either Claude or OpenAI (user selects)
+- [x] Both providers return valid responses that are displayed
+- [x] Response is written to SQLite and can be read back on next launch
+- [x] Router implements fallback: if primary provider fails, tries secondary automatically
+- [x] All Zustand stores initialise without errors
+- [x] Hot reload works in development
 
 ---
 
