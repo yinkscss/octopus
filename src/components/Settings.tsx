@@ -1,6 +1,21 @@
 import { invoke } from "../lib/tauri";
 import { useEffect, useState } from "react";
+import {
+  active,
+} from "@tauri-apps/plugin-notification";
+import { COMMANDS } from "../lib/commands";
 import { useSettingsStore, type ProviderName } from "../store/settings";
+
+type NativePermissionState = "granted" | "denied" | "prompt" | "default";
+
+const getNativeNotificationPermission = async (): Promise<NativePermissionState> => {
+  const granted = await invoke<boolean>("plugin:notification|is_permission_granted");
+  return granted ? "granted" : "denied";
+};
+
+const requestNativeNotificationPermission = async (): Promise<NativePermissionState> => {
+  return invoke<NativePermissionState>("plugin:notification|request_permission");
+};
 
 const providerOptions: Array<{ value: ProviderName; label: string }> = [
   { value: "claude", label: "Claude" },
@@ -25,6 +40,9 @@ export default function Settings() {
   const [openaiKey, setOpenaiKey] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [notificationPermission, setNotificationPermission] = useState<
+    "unknown" | "granted" | "denied" | "prompt" | "default"
+  >("unknown");
 
   useEffect(() => {
     loadApiKeys().catch((error) => {
@@ -33,6 +51,13 @@ export default function Settings() {
     refreshAlarmDaemon().catch((error) => {
       setStatus(`Failed to load alarm daemon status: ${String(error)}`);
     });
+    getNativeNotificationPermission()
+      .then((state) => {
+        setNotificationPermission(state);
+      })
+      .catch((error) => {
+        setStatus(`Failed to read notification permission: ${String(error)}`);
+      });
   }, [loadApiKeys, refreshAlarmDaemon]);
 
   useEffect(() => {
@@ -75,6 +100,58 @@ export default function Settings() {
       setStatus(`LaunchAgent configured at ${plistPath}.`);
     } catch (error) {
       setStatus(`Failed to configure LaunchAgent: ${String(error)}`);
+    }
+  };
+
+  const handleRequestNotificationPermission = async () => {
+    setStatus(null);
+    try {
+      const permission = await requestNativeNotificationPermission();
+      const granted = permission === "granted";
+      setNotificationPermission(permission);
+      setStatus(
+        granted
+          ? "Native notification permission granted."
+          : `Native notification permission is ${permission}.`
+      );
+    } catch (error) {
+      setStatus(`Failed to request notification permission: ${String(error)}`);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setStatus(null);
+    try {
+      const permission = await getNativeNotificationPermission();
+      const granted = permission === "granted";
+      setNotificationPermission(permission);
+
+      if (!granted) {
+        setStatus(
+          "Native notifications are not granted. Click 'Request Notification Permission' first."
+        );
+        return;
+      }
+
+      await invoke<void>(COMMANDS.sendNativeTestNotification);
+
+      // Best-effort visibility check for debugging.
+      const activeNotifications = await active().catch(() => []);
+      setStatus(
+        `Native test notification sent. Active notifications reported by plugin: ${activeNotifications.length}.`
+      );
+    } catch (error) {
+      setStatus(`Failed to send test notification: ${String(error)}`);
+    }
+  };
+
+  const handleOpenNotificationSettings = async () => {
+    setStatus(null);
+    try {
+      await invoke<void>(COMMANDS.openMacOSNotificationSettings);
+      setStatus("Opened macOS Notifications settings.");
+    } catch (error) {
+      setStatus(`Failed to open macOS Notifications settings: ${String(error)}`);
     }
   };
 
@@ -173,6 +250,34 @@ export default function Settings() {
           </button>
           <button className="button secondary" onClick={() => void handleEnsureLaunchAgent()}>
             Ensure LaunchAgent
+          </button>
+        </div>
+      </div>
+
+      <div className="section">
+        <p className="label">Notification Diagnostics</p>
+        <p className="hint">Permission: {notificationPermission}</p>
+        <p className="hint">
+          This panel uses native plugin permission commands and native Rust notification dispatch.
+        </p>
+        <div className="row" style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button
+            className="button secondary"
+            onClick={() => void handleRequestNotificationPermission()}
+          >
+            Request Notification Permission
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => void handleSendTestNotification()}
+          >
+            Send Test Notification
+          </button>
+          <button
+            className="button secondary"
+            onClick={() => void handleOpenNotificationSettings()}
+          >
+            Open Notification Settings
           </button>
         </div>
       </div>

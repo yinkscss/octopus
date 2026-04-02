@@ -9,6 +9,7 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev:clean": "pkill -f 'node .*node_modules/.bin/vite' || true; pkill -f 'target/debug/tauri-app' || true; tauri dev",
+    "tauri:build:app": "tauri build --debug --bundles app",
     "test": "vitest run",
     "test:phase2": "vitest run src/components/__tests__/Dashboard.alarms.test.tsx src/components/__tests__/WeeklyIntent.alarms.test.tsx src/lib/__tests__/commands.alarm.test.ts && npm run smoke:alarms",
     "test:watch": "vitest",

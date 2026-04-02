@@ -12,4 +12,6 @@ export const COMMANDS = {
   getAlarmTimeline: "get_alarm_timeline",
   getAlarmDaemonStatus: "get_alarm_daemon_status",
   ensureAlarmLaunchAgent: "ensure_alarm_launch_agent",
+  openMacOSNotificationSettings: "open_macos_notification_settings",
+  sendNativeTestNotification: "send_native_test_notification",
 } as const;

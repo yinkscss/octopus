@@ -1,4 +1,5 @@
 use sqlx::SqlitePool;
+use std::process::Command;
 use tauri::tray::TrayIconEvent;
 use tauri::{Manager, State};
 
@@ -37,6 +38,38 @@ fn debug_log(message: String) {
     println!("[DEBUG FROM FRONTEND] {}", message);
 }
 
+#[tauri::command]
+fn open_macos_notification_settings() -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    {
+        let status = Command::new("open")
+            .arg("x-apple.systempreferences:com.apple.Notifications-Settings.extension")
+            .status()
+            .map_err(|err| err.to_string())?;
+
+        if status.success() {
+            Ok(())
+        } else {
+            Err(format!("Failed to open Notifications settings (exit: {status})"))
+        }
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("This command is only available on macOS".to_string())
+    }
+}
+
+#[tauri::command]
+fn send_native_test_notification(app: tauri::AppHandle) -> Result<(), String> {
+    notifications::send_alarm_notification(
+        &app,
+        0,
+        "Octopus Native Test",
+        "This is a native notification path (Rust + tauri-plugin-notification).",
+    )
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -73,7 +106,9 @@ pub fn run() {
             commands::alarm::ensure_alarm_launch_agent,
             store_llm_response,
             get_last_llm_response,
-            debug_log
+            debug_log,
+            open_macos_notification_settings,
+            send_native_test_notification
         ])
         .on_tray_icon_event(|app, event| {
             if let TrayIconEvent::Click { button, .. } = event {

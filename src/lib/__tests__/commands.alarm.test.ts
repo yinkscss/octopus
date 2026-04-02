@@ -11,5 +11,11 @@ describe("alarm command constants", () => {
     expect(COMMANDS.getAlarmTimeline).toBe("get_alarm_timeline");
     expect(COMMANDS.getAlarmDaemonStatus).toBe("get_alarm_daemon_status");
     expect(COMMANDS.ensureAlarmLaunchAgent).toBe("ensure_alarm_launch_agent");
+    expect(COMMANDS.openMacOSNotificationSettings).toBe(
+      "open_macos_notification_settings"
+    );
+    expect(COMMANDS.sendNativeTestNotification).toBe(
+      "send_native_test_notification"
+    );
   });
 });
