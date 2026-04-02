@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "../lib/tauri";
 import { useEffect, useState } from "react";
 import { useSettingsStore, type ProviderName } from "../store/settings";
 

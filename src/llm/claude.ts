@@ -1,4 +1,4 @@
-import { invoke } from "@tauri-apps/api";
+import { invoke } from "../lib/tauri";
 import type { ZodSchema } from "zod";
 import type { AgentConfig, LLMProvider } from "./provider";
 
