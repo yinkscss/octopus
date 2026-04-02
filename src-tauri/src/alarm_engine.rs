@@ -88,7 +88,7 @@ impl AlarmEngine {
 
         for row in rows {
             let alarm_id: i64 = row.get("id");
-            match self.schedule_alarm(alarm_id).await {
+            match self.schedule_alarm_internal(alarm_id, true).await {
                 Ok(true) => scheduled_count += 1,
                 Ok(false) => {}
                 Err(_) => failed_count += 1,
@@ -113,7 +113,7 @@ impl AlarmEngine {
 
         for row in rows {
             let alarm_id: i64 = row.get("id");
-            match self.schedule_alarm(alarm_id).await {
+            match self.schedule_alarm_internal(alarm_id, true).await {
                 Ok(true) => scheduled_count += 1,
                 Ok(false) => {}
                 Err(_) => failed_count += 1,
@@ -133,6 +133,10 @@ impl AlarmEngine {
     }
 
     pub async fn schedule_alarm(&self, alarm_id: i64) -> Result<bool, String> {
+        self.schedule_alarm_internal(alarm_id, false).await
+    }
+
+    async fn schedule_alarm_internal(&self, alarm_id: i64, force: bool) -> Result<bool, String> {
         let row = sqlx::query(
             "SELECT id, status, COALESCE(tier, 1) AS tier, COALESCE(snoozed_until, scheduled_at) AS due_at
              FROM alarms WHERE id = ?1",
@@ -160,9 +164,14 @@ impl AlarmEngine {
 
         let token = format!("alarm:{alarm_id}:tier:{tier}");
         {
-            let jobs = self.scheduled_jobs.lock().await;
-            if jobs.contains_key(&token) {
-                return Ok(false);
+            let mut jobs = self.scheduled_jobs.lock().await;
+            if let Some(existing) = jobs.remove(&token) {
+                if force {
+                    existing.abort();
+                } else {
+                    jobs.insert(token.clone(), existing);
+                    return Ok(false);
+                }
             }
         }
 
@@ -229,7 +238,29 @@ impl AlarmEngine {
 
         tx.commit().await.map_err(|err| err.to_string())?;
 
-        let _ = send_alarm_notification(&self.app, alarm_id, "Octopus", &label);
+        let notification_result = send_alarm_notification(&self.app, alarm_id, "Octopus", &label);
+        match notification_result {
+            Ok(()) => {
+                let _ = sqlx::query(
+                    "INSERT INTO alarm_events (alarm_id, event_type, metadata_json) VALUES (?1, ?2, ?3)",
+                )
+                .bind(alarm_id)
+                .bind("notification_dispatched")
+                .bind(Some(json!({ "tier": tier }).to_string()))
+                .execute(&self.pool)
+                .await;
+            }
+            Err(err) => {
+                let _ = sqlx::query(
+                    "INSERT INTO alarm_events (alarm_id, event_type, metadata_json) VALUES (?1, ?2, ?3)",
+                )
+                .bind(alarm_id)
+                .bind("notification_failed")
+                .bind(Some(json!({ "error": err }).to_string()))
+                .execute(&self.pool)
+                .await;
+            }
+        }
         let _ = self.app.emit(
             "alarm-fired",
             json!({
