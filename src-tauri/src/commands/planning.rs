@@ -525,3 +525,20 @@ fn parse_scheduled_at(scheduled_at: &str) -> Option<NaiveDateTime> {
         .ok()
         .or_else(|| NaiveDateTime::parse_from_str(scheduled_at, "%Y-%m-%d %H:%M").ok())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_scheduled_datetime_from_week_and_day() {
+        let scheduled = build_scheduled_at("2026-04-06", "wednesday", "09:30").expect("scheduled");
+        assert_eq!(scheduled, "2026-04-08 09:30:00");
+    }
+
+    #[test]
+    fn extracts_day_and_time_from_scheduled_datetime() {
+        assert_eq!(day_from_scheduled_at("2026-04-09 18:05:00"), "thursday");
+        assert_eq!(time_from_scheduled_at("2026-04-09 18:05:00"), "18:05");
+    }
+}

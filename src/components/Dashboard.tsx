@@ -13,11 +13,20 @@ export default function Dashboard() {
     [currentPlan, today]
   );
 
+  const upcomingTasks = useMemo(
+    () => currentPlan?.tasks.filter((task) => task.day !== today) ?? [],
+    [currentPlan, today]
+  );
+
+  const hasTodayTasks = todaysTasks.length > 0;
+  const visibleTasks = hasTodayTasks ? todaysTasks : upcomingTasks;
+  const headingLabel = hasTodayTasks ? "today" : "upcoming";
+
   return (
     <div className="screen">
       <div className="section">
-        <p className="label">Today</p>
-        <h2 className="heading">{today}</h2>
+        <p className="label">{headingLabel}</p>
+        <h2 className="heading">{hasTodayTasks ? today : "next tasks"}</h2>
       </div>
 
       {isFallbackPlan && (
@@ -27,11 +36,15 @@ export default function Dashboard() {
       {isLoading && <p className="status">Loading plan...</p>}
       {lastError && <p className="error">{lastError}</p>}
 
-      {!isLoading && todaysTasks.length === 0 && (
-        <p className="status">No tasks scheduled for today yet.</p>
+      {!isLoading && visibleTasks.length === 0 && (
+        <p className="status">No tasks scheduled yet. Build a weekly plan first.</p>
       )}
 
-      {todaysTasks.map((task) => (
+      {!isLoading && !hasTodayTasks && upcomingTasks.length > 0 && (
+        <p className="status">No tasks for today. Showing upcoming tasks.</p>
+      )}
+
+      {visibleTasks.map((task) => (
         <div className="task-card" key={`${task.id ?? "tmp"}-${task.day}-${task.time_block}`}>
           <div className="task-row">
             <span className="task-time">{task.time_block}</span>
@@ -39,6 +52,7 @@ export default function Dashboard() {
               {task.status === "done" ? "Done" : "Pending"}
             </span>
           </div>
+          <p className="task-note">{task.day}</p>
           <p className="task-title">{task.title}</p>
           <p className="task-note">{task.implementation_intention}</p>
           <p className="task-note">Start: {task.two_minute_start}</p>

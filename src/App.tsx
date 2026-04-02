@@ -45,7 +45,9 @@ function App() {
         </button>
       </div>
 
-      {activeTab === "weekly-intent" && <WeeklyIntent />}
+      {activeTab === "weekly-intent" && (
+        <WeeklyIntent onPlanBuilt={() => setActiveTab("dashboard")} />
+      )}
       {activeTab === "dashboard" && <Dashboard />}
       {activeTab === "test" && <TestScreen />}
       {activeTab === "settings" && <Settings />}

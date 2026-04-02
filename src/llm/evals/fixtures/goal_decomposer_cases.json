@@ -1,0 +1,78 @@
+[
+  {
+    "id": "case-001",
+    "provider_failed": false,
+    "fallback_loaded": false,
+    "candidate_plan": {
+      "identity_statement": "I am someone who ships.",
+      "week_start": "2026-04-06",
+      "tasks": [
+        {
+          "day": "monday",
+          "title": "Ship onboarding",
+          "implementation_intention": "When it is 09:00, I will ship onboarding.",
+          "time_block": "09:00",
+          "duration_minutes": 90,
+          "type": "deep_work",
+          "app_rules": ["Twitter", "YouTube"],
+          "two_minute_start": "Open project and create first commit"
+        }
+      ],
+      "time_blocks": [
+        {
+          "day": "monday",
+          "start_time": "09:00",
+          "end_time": "10:30",
+          "mode": "deep_work",
+          "app_rules": ["Twitter", "YouTube"]
+        }
+      ],
+      "alarms": [
+        {
+          "day": "monday",
+          "time": "08:50",
+          "label": "You said you would ship onboarding.",
+          "type": "transition"
+        }
+      ]
+    }
+  },
+  {
+    "id": "case-002",
+    "provider_failed": true,
+    "fallback_loaded": true,
+    "candidate_plan": {
+      "identity_statement": "I am a focused builder.",
+      "week_start": "2026-04-06",
+      "tasks": [
+        {
+          "day": "tuesday",
+          "title": "Finish architecture review",
+          "implementation_intention": "When it is 13:00, I will finish architecture review.",
+          "time_block": "13:00",
+          "duration_minutes": 60,
+          "type": "admin",
+          "app_rules": [],
+          "two_minute_start": "Open docs and write first outline bullet"
+        }
+      ],
+      "time_blocks": [
+        {
+          "day": "tuesday",
+          "start_time": "13:00",
+          "end_time": "14:00",
+          "mode": "admin",
+          "app_rules": []
+        }
+      ],
+      "alarms": [
+        {
+          "day": "tuesday",
+          "time": "12:50",
+          "label": "You said you would finish architecture review.",
+          "type": "transition"
+        }
+      ]
+    }
+  }
+]

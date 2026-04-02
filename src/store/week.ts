@@ -7,7 +7,7 @@ import type { TaskPlan } from "../types/taskPlan";
 import type { WeekState } from "../types/week";
 
 interface WeekStore extends WeekState {
-  submitWeeklyIntent: (rawGoals: string, identityStatement: string) => Promise<void>;
+  submitWeeklyIntent: (rawGoals: string, identityStatement: string) => Promise<boolean>;
   loadWeekPlan: (weekStart?: string) => Promise<void>;
   markTaskComplete: (taskId: number) => Promise<void>;
   clearError: () => void;
@@ -57,21 +57,21 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
 
     if (!rawGoals.trim()) {
       set({ lastError: "Weekly goals cannot be empty." });
-      return;
+      return false;
     }
 
     if (!identityStatement.trim()) {
       set({ lastError: "Identity statement cannot be empty." });
-      return;
+      return false;
     }
 
     set({ isLoading: true, lastError: null, activeWeekStart: weekStart });
 
     try {
       const goalId = await invoke<number>(COMMANDS.createWeeklyGoal, {
-        week_start: weekStart,
-        raw_text: rawGoals,
-        identity_statement: identityStatement,
+        weekStart,
+        rawText: rawGoals,
+        identityStatement,
       });
 
       const plan = await decomposeWeeklyGoals({
@@ -83,12 +83,12 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
       const normalizedPlan = normalizePlan(plan);
 
       await invoke<number>(COMMANDS.storeTaskPlan, {
-        goal_id: goalId,
+        goalId,
         plan: normalizedPlan,
       });
 
       const persistedPlan = await invoke<TaskPlan | null>(COMMANDS.getWeekPlan, {
-        week_start: weekStart,
+        weekStart,
       });
 
       set({
@@ -96,6 +96,7 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
         isFallbackPlan: false,
         isLoading: false,
       });
+      return true;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
 
@@ -105,7 +106,7 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
         }
 
         const fallbackPlan = await invoke<TaskPlan>(COMMANDS.shiftLastPlanForward, {
-          target_week_start: weekStart,
+          targetWeekStart: weekStart,
         });
 
         set({
@@ -114,11 +115,13 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
           isLoading: false,
           lastError: "LLM unavailable. Loaded shifted plan from the previous week.",
         });
+        return true;
       } catch {
         set({
           isLoading: false,
           lastError: `Failed to build weekly plan: ${message}`,
         });
+        return false;
       }
     }
   },
@@ -128,7 +131,7 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
 
     try {
       const plan = await invoke<TaskPlan | null>(COMMANDS.getWeekPlan, {
-        week_start: targetWeek,
+        weekStart: targetWeek,
       });
 
       set({
@@ -158,9 +161,9 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
 
     try {
       await invoke<number>(COMMANDS.markTaskCompleted, {
-        task_id: task.id,
-        duration_actual: null,
-        drift_minutes: null,
+        taskId: task.id,
+        durationActual: null,
+        driftMinutes: null,
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);

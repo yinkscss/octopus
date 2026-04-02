@@ -1,10 +1,21 @@
 import { useState } from "react";
 import { useWeekStore } from "../store/week";
 
-export default function WeeklyIntent() {
+interface WeeklyIntentProps {
+  onPlanBuilt?: () => void;
+}
+
+export default function WeeklyIntent({ onPlanBuilt }: WeeklyIntentProps) {
   const { submitWeeklyIntent, isLoading, lastError, isFallbackPlan } = useWeekStore();
   const [rawGoals, setRawGoals] = useState("");
   const [identityStatement, setIdentityStatement] = useState("");
+
+  const handleBuild = async () => {
+    const built = await submitWeeklyIntent(rawGoals, identityStatement);
+    if (built) {
+      onPlanBuilt?.();
+    }
+  };
 
   return (
     <div className="screen">
@@ -36,7 +47,7 @@ export default function WeeklyIntent() {
 
       <button
         className="button"
-        onClick={() => void submitWeeklyIntent(rawGoals, identityStatement)}
+        onClick={() => void handleBuild()}
         disabled={isLoading}
       >
         {isLoading ? "Building plan..." : "Build 7-Day Plan"}
