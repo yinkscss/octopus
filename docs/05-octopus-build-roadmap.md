@@ -121,12 +121,12 @@ User types their weekly goals on Sunday. The agent decomposes them into a 7-day 
 
 ### Definition of Done
 
-- [ ] User can submit weekly goals in natural language
-- [ ] App displays a 7-day breakdown with time blocks and task labels
-- [ ] Each task has an implementation intention and a two-minute start
-- [ ] Tasks can be marked complete — stored in SQLite with timestamp
-- [ ] Atomic Habits filter rejects tasks missing implementation intentions
-- [ ] Claude API failure shows a graceful error with fallback to previous plan
+- [x] User can submit weekly goals in natural language
+- [x] App displays a 7-day breakdown with time blocks and task labels
+- [x] Each task has an implementation intention and a two-minute start
+- [x] Tasks can be marked complete — stored in SQLite with timestamp
+- [x] Atomic Habits filter rejects tasks missing implementation intentions
+- [x] Claude API failure shows a graceful error with fallback to previous plan
 
 ---
 
