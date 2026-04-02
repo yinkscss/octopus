@@ -56,8 +56,23 @@ pub fn run() {
                         if is_visible {
                             let _ = window.hide();
                         } else {
+                            // Show window and ensure it gets focus
                             let _ = window.show();
                             let _ = window.set_focus();
+                            let _ = window.set_always_on_top(true);
+                            
+                            // Position window near tray icon (top-right on macOS)
+                            #[cfg(target_os = "macos")]
+                            if let Ok(monitor) = window.current_monitor() {
+                                if let Some(monitor) = monitor {
+                                    let screen_size = monitor.size();
+                                    let window_size = window.outer_size().unwrap_or_default();
+                                    // Position near top-right corner with some padding
+                                    let x = screen_size.width as i32 - window_size.width as i32 - 10;
+                                    let y = 30;
+                                    let _ = window.set_position(tauri::PhysicalPosition::new(x, y));
+                                }
+                            }
                         }
                     }
                 }
