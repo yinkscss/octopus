@@ -2,7 +2,16 @@ import { useMemo } from "react";
 import { getTodayName, useWeekStore } from "../store/week";
 
 export default function Dashboard() {
-  const { currentPlan, markTaskComplete, isFallbackPlan, isLoading, lastError } = useWeekStore();
+  const {
+    currentPlan,
+    markTaskComplete,
+    acknowledgeAlarm,
+    snoozeAlarmOnce,
+    isFallbackPlan,
+    isLoading,
+    lastError,
+    alarmSync,
+  } = useWeekStore();
 
   const today = getTodayName();
 
@@ -15,6 +24,11 @@ export default function Dashboard() {
 
   const upcomingTasks = useMemo(
     () => currentPlan?.tasks.filter((task) => task.day !== today) ?? [],
+    [currentPlan, today]
+  );
+
+  const todaysAlarms = useMemo(
+    () => currentPlan?.alarms.filter((alarm) => alarm.day === today) ?? [],
     [currentPlan, today]
   );
 
@@ -31,6 +45,11 @@ export default function Dashboard() {
 
       {isFallbackPlan && (
         <p className="status warning">Showing shifted plan because LLM fallback was used.</p>
+      )}
+      {alarmSync && (
+        <p className="status">
+          Alarm sync: {alarmSync.scheduledCount} scheduled, {alarmSync.failedCount} failed, last sync {alarmSync.lastSyncAt}.
+        </p>
       )}
 
       {isLoading && <p className="status">Loading plan...</p>}
@@ -65,6 +84,37 @@ export default function Dashboard() {
           </button>
         </div>
       ))}
+
+      {!isLoading && todaysAlarms.length > 0 && (
+        <div className="section" style={{ marginTop: 12 }}>
+          <p className="label">alarms</p>
+          {todaysAlarms.map((alarm) => (
+            <div className="task-card" key={`${alarm.id ?? "tmp"}-${alarm.day}-${alarm.time}`}>
+              <div className="task-row">
+                <span className="task-time">{alarm.time}</span>
+                <span className="task-status pending">Tier {alarm.tier ?? 1}</span>
+              </div>
+              <p className="task-note">{alarm.label}</p>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  className="button secondary"
+                  onClick={() => alarm.id && void acknowledgeAlarm(alarm.id)}
+                  disabled={!alarm.id}
+                >
+                  I'M ON IT
+                </button>
+                <button
+                  className="button secondary"
+                  onClick={() => alarm.id && void snoozeAlarmOnce(alarm.id)}
+                  disabled={!alarm.id}
+                >
+                  SNOOZE ONCE
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -4,4 +4,12 @@ export const COMMANDS = {
   getWeekPlan: "get_week_plan",
   shiftLastPlanForward: "shift_last_plan_forward",
   markTaskCompleted: "mark_task_completed",
+  scheduleWeekAlarms: "schedule_week_alarms",
+  reschedulePendingAlarms: "reschedule_pending_alarms",
+  acknowledgeAlarm: "acknowledge_alarm",
+  snoozeAlarmOnce: "snooze_alarm_once",
+  escalateAlarmIfUnacked: "escalate_alarm_if_unacked",
+  getAlarmTimeline: "get_alarm_timeline",
+  getAlarmDaemonStatus: "get_alarm_daemon_status",
+  ensureAlarmLaunchAgent: "ensure_alarm_launch_agent",
 } as const;

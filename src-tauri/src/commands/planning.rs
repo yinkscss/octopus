@@ -34,6 +34,7 @@ pub struct AlarmInput {
     pub time: String,
     pub label: String,
     pub r#type: String,
+    pub tier: Option<i64>,
     pub status: Option<String>,
 }
 
@@ -146,8 +147,8 @@ pub async fn store_task_plan(
         let task_id = task_id_by_day.get(&alarm.day).copied();
 
         sqlx::query(
-            "INSERT INTO alarms (scheduled_at, label, task_id, status, acknowledged_at, day, time, alarm_type)
-             VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7)",
+              "INSERT INTO alarms (scheduled_at, label, task_id, status, acknowledged_at, day, time, alarm_type, tier)
+               VALUES (?1, ?2, ?3, ?4, NULL, ?5, ?6, ?7, ?8)",
         )
         .bind(scheduled_at)
         .bind(&alarm.label)
@@ -156,6 +157,7 @@ pub async fn store_task_plan(
         .bind(&alarm.day)
         .bind(&alarm.time)
         .bind(&alarm.r#type)
+           .bind(alarm.tier.unwrap_or(1))
         .execute(&mut *tx)
         .await
         .map_err(|err| err.to_string())?;
@@ -285,8 +287,8 @@ pub async fn shift_last_plan_forward(
         let mapped_task_id = new_task_id_by_day.get(&alarm.day).copied();
 
         sqlx::query(
-            "INSERT INTO alarms (scheduled_at, label, task_id, status, acknowledged_at, day, time, alarm_type)
-             VALUES (?1, ?2, ?3, 'scheduled', NULL, ?4, ?5, ?6)",
+              "INSERT INTO alarms (scheduled_at, label, task_id, status, acknowledged_at, day, time, alarm_type, tier)
+               VALUES (?1, ?2, ?3, 'scheduled', NULL, ?4, ?5, ?6, ?7)",
         )
         .bind(scheduled_at)
         .bind(&alarm.label)
@@ -294,6 +296,7 @@ pub async fn shift_last_plan_forward(
         .bind(&alarm.day)
         .bind(&alarm.time)
         .bind(&alarm.r#type)
+           .bind(alarm.tier.unwrap_or(1))
         .execute(&mut *tx)
         .await
         .map_err(|err| err.to_string())?;
@@ -411,7 +414,7 @@ async fn load_plan_by_goal(
         .collect::<Vec<_>>();
 
     let alarm_rows = sqlx::query(
-        "SELECT id, day, time, label, alarm_type, status, scheduled_at
+        "SELECT id, day, time, label, alarm_type, status, scheduled_at, COALESCE(tier, 1) AS tier
          FROM alarms
          WHERE task_id IN (SELECT id FROM tasks WHERE goal_id = ?1)
             OR scheduled_at LIKE (?2 || '%')
@@ -452,6 +455,7 @@ async fn load_plan_by_goal(
                     .ok()
                     .flatten()
                     .unwrap_or_else(|| "transition".to_string()),
+                tier: row.try_get::<Option<i64>, _>("tier").ok().flatten(),
                 status: row.try_get::<Option<String>, _>("status").ok().flatten(),
             }
         })

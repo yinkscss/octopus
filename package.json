@@ -9,13 +9,17 @@
     "preview": "vite preview",
     "tauri": "tauri",
     "test": "vitest run",
+    "test:phase2": "vitest run src/components/__tests__/Dashboard.alarms.test.tsx src/components/__tests__/WeeklyIntent.alarms.test.tsx src/lib/__tests__/commands.alarm.test.ts && npm run smoke:alarms",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "eval:goal-decomposer": "tsx src/llm/evals/goal_decomposer_eval.ts"
+    "eval:goal-decomposer": "tsx src/llm/evals/goal_decomposer_eval.ts",
+    "eval:alarm-engine": "tsx src/llm/evals/alarm_engine_eval.ts",
+    "smoke:alarms": "tsx scripts/smoke/alarms-smoke.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.96.1",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-notification": "^2",
     "@tauri-apps/plugin-opener": "^2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",

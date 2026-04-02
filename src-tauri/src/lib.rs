@@ -2,9 +2,12 @@ use sqlx::SqlitePool;
 use tauri::tray::TrayIconEvent;
 use tauri::{Manager, State};
 
+mod alarm_engine;
 mod commands;
 mod db;
 mod keychain;
+mod launch_agent;
+mod notifications;
 
 #[tauri::command]
 async fn store_llm_response(pool: State<'_, SqlitePool>, response: String) -> Result<i64, String> {
@@ -38,6 +41,7 @@ fn debug_log(message: String) {
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init())
         .setup(|app| {
             #[cfg(target_os = "macos")]
             {
@@ -45,7 +49,10 @@ pub fn run() {
             }
 
             let pool = tauri::async_runtime::block_on(db::init_db())?;
+            let alarm_engine = alarm_engine::AlarmEngine::new(app.handle().clone(), pool.clone());
+            tauri::async_runtime::block_on(alarm_engine.recover_pending_after_restart())?;
             app.manage(pool);
+            app.manage(alarm_engine);
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -56,6 +63,14 @@ pub fn run() {
             commands::planning::get_week_plan,
             commands::planning::shift_last_plan_forward,
             commands::planning::mark_task_completed,
+            commands::alarm::schedule_week_alarms,
+            commands::alarm::reschedule_pending_alarms,
+            commands::alarm::acknowledge_alarm,
+            commands::alarm::snooze_alarm_once,
+            commands::alarm::escalate_alarm_if_unacked,
+            commands::alarm::get_alarm_timeline,
+            commands::alarm::get_alarm_daemon_status,
+            commands::alarm::ensure_alarm_launch_agent,
             store_llm_response,
             get_last_llm_response,
             debug_log

@@ -12,9 +12,14 @@ export default function Settings() {
     primaryProvider,
     fallbackProvider,
     apiKeys,
+    alarmDaemon,
+    lastAlarmSyncAt,
     setProvider,
     loadApiKeys,
     setApiKeys,
+    refreshAlarmDaemon,
+    resyncAlarms,
+    ensureAlarmLaunchAgent,
   } = useSettingsStore();
   const [claudeKey, setClaudeKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
@@ -25,7 +30,10 @@ export default function Settings() {
     loadApiKeys().catch((error) => {
       setStatus(`Failed to load keys: ${String(error)}`);
     });
-  }, [loadApiKeys]);
+    refreshAlarmDaemon().catch((error) => {
+      setStatus(`Failed to load alarm daemon status: ${String(error)}`);
+    });
+  }, [loadApiKeys, refreshAlarmDaemon]);
 
   useEffect(() => {
     setClaudeKey(apiKeys.claude ?? "");
@@ -44,6 +52,29 @@ export default function Settings() {
       setStatus(`Save failed: ${String(error)}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleResyncAlarms = async () => {
+    setStatus(null);
+    try {
+      const report = await resyncAlarms();
+      setStatus(
+        `Alarm sync completed: ${report.scheduled_count} scheduled, ${report.failed_count} failed.`
+      );
+      await refreshAlarmDaemon();
+    } catch (error) {
+      setStatus(`Alarm sync failed: ${String(error)}`);
+    }
+  };
+
+  const handleEnsureLaunchAgent = async () => {
+    setStatus(null);
+    try {
+      const plistPath = await ensureAlarmLaunchAgent();
+      setStatus(`LaunchAgent configured at ${plistPath}.`);
+    } catch (error) {
+      setStatus(`Failed to configure LaunchAgent: ${String(error)}`);
     }
   };
 
@@ -128,6 +159,23 @@ export default function Settings() {
       <button className="button" onClick={handleSave} disabled={isSaving}>
         {isSaving ? "Saving..." : "Save"}
       </button>
+
+      <div className="section">
+        <p className="label">Alarm Daemon</p>
+        <p className="hint">
+          Status: {alarmDaemon ? (alarmDaemon.running ? "running" : "stopped") : "unknown"}
+          {alarmDaemon ? `, queued jobs ${alarmDaemon.scheduled_jobs}` : ""}
+        </p>
+        {lastAlarmSyncAt && <p className="hint">Last alarm sync: {lastAlarmSyncAt}</p>}
+        <div className="row" style={{ display: "flex", gap: 8, marginTop: 8 }}>
+          <button className="button secondary" onClick={() => void handleResyncAlarms()}>
+            Resync Alarms
+          </button>
+          <button className="button secondary" onClick={() => void handleEnsureLaunchAgent()}>
+            Ensure LaunchAgent
+          </button>
+        </div>
+      </div>
 
       {status && <p className="status">{status}</p>}
       <p className="hint">API keys are stored in macOS Keychain.</p>

@@ -45,11 +45,23 @@ export const AlarmTypeSchema = z.enum([
 ]);
 
 export const AlarmSchema = z.object({
+  id: z.number().int().positive().optional(),
   day: DaySchema,
   time: TimeStringSchema,
   label: z.string().min(1),
   type: AlarmTypeSchema,
-  status: z.enum(["scheduled", "acknowledged", "dismissed"]).optional(),
+  tier: z.number().int().min(1).optional(),
+  status: z
+    .enum([
+      "scheduled",
+      "fired",
+      "snoozed",
+      "acknowledged",
+      "escalated",
+      "dismissed",
+      "missed",
+    ])
+    .optional(),
 });
 
 export const TaskPlanSchema = z.object({

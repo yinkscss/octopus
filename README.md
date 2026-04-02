@@ -138,6 +138,17 @@ The app will request these during onboarding:
 - **Notifications** — For alarms and intervention delivery
 - **Full Disk Access** — For LaunchAgent installation
 
+### Validation Commands
+
+Run the full validation pipeline in this order:
+
+```bash
+cargo test --manifest-path src-tauri/Cargo.toml
+npm test
+npm run eval:goal-decomposer
+npm run eval:alarm-engine
+```
+
 ---
 
 ## Build Roadmap

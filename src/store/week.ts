@@ -3,6 +3,7 @@ import { decomposeWeeklyGoals } from "../agents/goalDecomposer";
 import { COMMANDS } from "../lib/commands";
 import { invoke } from "../lib/tauri";
 import { PlannerProviderError } from "../types/errors";
+import type { AlarmActionReport, AlarmScheduleReport } from "../types/alarm";
 import type { TaskPlan } from "../types/taskPlan";
 import type { WeekState } from "../types/week";
 
@@ -10,6 +11,9 @@ interface WeekStore extends WeekState {
   submitWeeklyIntent: (rawGoals: string, identityStatement: string) => Promise<boolean>;
   loadWeekPlan: (weekStart?: string) => Promise<void>;
   markTaskComplete: (taskId: number) => Promise<void>;
+  acknowledgeAlarm: (alarmId: number) => Promise<AlarmActionReport | null>;
+  snoozeAlarmOnce: (alarmId: number) => Promise<AlarmActionReport | null>;
+  resyncAlarms: () => Promise<void>;
   clearError: () => void;
 }
 
@@ -51,6 +55,7 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
   isLoading: false,
   isFallbackPlan: false,
   lastError: null,
+  alarmSync: null,
   clearError: () => set({ lastError: null }),
   submitWeeklyIntent: async (rawGoals: string, identityStatement: string) => {
     const weekStart = getMondayWeekStart();
@@ -87,6 +92,10 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
         plan: normalizedPlan,
       });
 
+      const alarmReport = await invoke<AlarmScheduleReport>(COMMANDS.scheduleWeekAlarms, {
+        weekStart,
+      });
+
       const persistedPlan = await invoke<TaskPlan | null>(COMMANDS.getWeekPlan, {
         weekStart,
       });
@@ -95,6 +104,11 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
         currentPlan: persistedPlan ? normalizePlan(persistedPlan) : normalizedPlan,
         isFallbackPlan: false,
         isLoading: false,
+        alarmSync: {
+          scheduledCount: alarmReport.scheduled_count,
+          failedCount: alarmReport.failed_count,
+          lastSyncAt: alarmReport.last_sync_at,
+        },
       });
       return true;
     } catch (error) {
@@ -109,11 +123,20 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
           targetWeekStart: weekStart,
         });
 
+        const alarmReport = await invoke<AlarmScheduleReport>(COMMANDS.scheduleWeekAlarms, {
+          weekStart,
+        });
+
         set({
           currentPlan: normalizePlan(fallbackPlan),
           isFallbackPlan: true,
           isLoading: false,
           lastError: "LLM unavailable. Loaded shifted plan from the previous week.",
+          alarmSync: {
+            scheduledCount: alarmReport.scheduled_count,
+            failedCount: alarmReport.failed_count,
+            lastSyncAt: alarmReport.last_sync_at,
+          },
         });
         return true;
       } catch {
@@ -171,6 +194,43 @@ export const useWeekStore = create<WeekStore>((set, get) => ({
         currentPlan: previous,
         lastError: `Failed to mark task complete: ${message}`,
       });
+    }
+  },
+  acknowledgeAlarm: async (alarmId: number) => {
+    try {
+      return await invoke<AlarmActionReport>(COMMANDS.acknowledgeAlarm, {
+        alarmId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      set({ lastError: `Failed to acknowledge alarm: ${message}` });
+      return null;
+    }
+  },
+  snoozeAlarmOnce: async (alarmId: number) => {
+    try {
+      return await invoke<AlarmActionReport>(COMMANDS.snoozeAlarmOnce, {
+        alarmId,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      set({ lastError: `Failed to snooze alarm: ${message}` });
+      return null;
+    }
+  },
+  resyncAlarms: async () => {
+    try {
+      const report = await invoke<AlarmScheduleReport>(COMMANDS.reschedulePendingAlarms);
+      set({
+        alarmSync: {
+          scheduledCount: report.scheduled_count,
+          failedCount: report.failed_count,
+          lastSyncAt: report.last_sync_at,
+        },
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      set({ lastError: `Failed to resync alarms: ${message}` });
     }
   },
 }));

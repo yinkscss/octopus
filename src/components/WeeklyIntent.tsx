@@ -6,7 +6,7 @@ interface WeeklyIntentProps {
 }
 
 export default function WeeklyIntent({ onPlanBuilt }: WeeklyIntentProps) {
-  const { submitWeeklyIntent, isLoading, lastError, isFallbackPlan } = useWeekStore();
+  const { submitWeeklyIntent, isLoading, lastError, isFallbackPlan, alarmSync } = useWeekStore();
   const [rawGoals, setRawGoals] = useState("");
   const [identityStatement, setIdentityStatement] = useState("");
 
@@ -56,6 +56,11 @@ export default function WeeklyIntent({ onPlanBuilt }: WeeklyIntentProps) {
       {isFallbackPlan && (
         <p className="status warning">
           Planner fallback active: shifted previous week plan loaded.
+        </p>
+      )}
+      {alarmSync && (
+        <p className="status">
+          Alarm sync: {alarmSync.scheduledCount} scheduled, {alarmSync.failedCount} failed, last sync {alarmSync.lastSyncAt}.
         </p>
       )}
       {lastError && <p className="error">{lastError}</p>}

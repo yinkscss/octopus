@@ -2,6 +2,8 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const markTaskComplete = vi.fn();
+const acknowledgeAlarm = vi.fn();
+const snoozeAlarmOnce = vi.fn();
 
 const storeState = {
   currentPlan: {
@@ -25,9 +27,12 @@ const storeState = {
     alarms: [],
   },
   markTaskComplete,
+  acknowledgeAlarm,
+  snoozeAlarmOnce,
   isFallbackPlan: false,
   isLoading: false,
   lastError: null as string | null,
+  alarmSync: null as { scheduledCount: number; failedCount: number; lastSyncAt: string } | null,
 };
 
 vi.mock("../../store/week", () => ({
